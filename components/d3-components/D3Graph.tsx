@@ -1,122 +1,210 @@
-"use client" 
+"use client";
+import React, { useRef, useEffect } from "react";
+import { Box } from "@mui/material";
+import * as d3 from "d3";
 
-import React, { useRef, useEffect } from "react"
-import * as d3 from "d3"
-
-interface NodeDatum extends d3.SimulationNodeDatum {
-  id: string
+interface GraphNode extends d3.SimulationNodeDatum {
+  id: string;
+  size: "large" | "medium" | "small";
+  ring: number;
+  description?: string;
+  radius?: number;
 }
 
-const data = {
-  nodes: [
-    { id: "Topic" },
-    { id: "SubTopic1" },
-    { id: "SubTopic2" },
-    { id: "Related1" },
-    { id: "Related2" },
-  ] as NodeDatum[],
-  links: [
-    { source: "Topic", target: "SubTopic1" },
-    { source: "Topic", target: "SubTopic2" },
-    { source: "SubTopic1", target: "Related1" },
-    { source: "SubTopic2", target: "Related2" },
-  ] as d3.SimulationLinkDatum<NodeDatum>[],
+interface GraphLink extends d3.SimulationLinkDatum<GraphNode> {
+  source: string | GraphNode;
+  target: string | GraphNode;
 }
 
-export default function D3Graph() {
-  const svgRef = useRef<SVGSVGElement>(null)
+interface GraphData {
+  nodes: GraphNode[];
+  links: GraphLink[];
+}
+
+interface D3GraphProps {
+  graphData: GraphData | null;
+  onNodeClick?: (node: GraphNode) => void;
+}
+
+const BASE_RADIUS = {
+  large: 30,
+  medium: 20,
+  small: 14,
+};
+
+function getTextWidth(text: string, fontSize = 12, fontFamily = "sans-serif") {
+  if (typeof document === "undefined") return text.length * fontSize;
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  if (!context) return text.length * fontSize;
+  context.font = `${fontSize}px ${fontFamily}`;
+  return context.measureText(text).width;
+}
+
+export default function D3Graph({ graphData, onNodeClick }: D3GraphProps) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const simulationRef = useRef<d3.Simulation<GraphNode, GraphLink> | null>(null);
 
   useEffect(() => {
-    if (!svgRef.current) return
+    if (!svgRef.current || !graphData) return;
 
-    const width = 600
-    const height = 400
+    const width = window.innerWidth;
+    const height = window.innerHeight;
 
-    const svg = d3.select(svgRef.current)
-    svg.selectAll("*").remove()
+    const svg = d3.select(svgRef.current);
+    svg.selectAll("*").remove();
 
-    const simulation = d3
-      .forceSimulation<NodeDatum>(data.nodes)
-      .force("charge", d3.forceManyBody<NodeDatum>().strength(-200))
-      .force(
-        "link",
-        d3
-          .forceLink<NodeDatum, d3.SimulationLinkDatum<NodeDatum>>(data.links)
-          .id(d => d.id)
-          .distance(100)
+    const container = svg.append("g");
+
+    const { nodes, links } = graphData;
+
+    const defs = container.append("defs");
+    const filter = defs.append("filter")
+      .attr("id", "drop-shadow")
+      .attr("width", "150%")
+      .attr("height", "150%");
+    filter.append("feDropShadow")
+      .attr("dx", 2)
+      .attr("dy", 2)
+      .attr("stdDeviation", 2)
+      .attr("flood-color", "#000")
+      .attr("flood-opacity", 0.3);
+
+    nodes.forEach(node => {
+      const base = BASE_RADIUS[node.size] || 14;
+      const textWidth = getTextWidth(node.id, 12);
+      const neededRadius = textWidth / 2 + 8;
+      node.radius = Math.max(base, neededRadius);
+    });
+
+    const simulation = d3.forceSimulation<GraphNode>(nodes)
+      .force("link", d3.forceLink<GraphNode, GraphLink>(links)
+        .id(d => d.id)
+        .distance(150)
       )
+      .force("charge", d3.forceManyBody().strength(-300))
       .force("center", d3.forceCenter(width / 2, height / 2))
+      .force("collision", d3.forceCollide<GraphNode>().radius(d => (d.radius || 20) + 4));
+    simulationRef.current = simulation;
 
-    const link = svg
-      .append("g")
-      .attr("stroke", "#999")
-      .attr("stroke-opacity", 0.8)
-      .selectAll("line")
-      .data(data.links)
+    setTimeout(() => {
+      if (simulationRef.current) {
+        simulationRef.current.force("center", null);
+      }
+    }, 1000);
+
+    const linkSelection = container.selectAll<SVGLineElement, GraphLink>("line")
+      .data(links)
       .enter()
       .append("line")
-      .attr("stroke-width", 2)
+      .attr("stroke", "#999")
+      .attr("stroke-opacity", 0.6)
+      .attr("stroke-width", 1);
 
-    const node = svg
-      .append("g")
-      .selectAll("circle")
-      .data(data.nodes)
+    const nodeSelection = container.selectAll<SVGCircleElement, GraphNode>("circle")
+      .data(nodes)
       .enter()
       .append("circle")
-      .attr("r", 10)
-      .attr("fill", "steelblue")
+      .attr("r", d => d.radius || 14)
+      .attr("fill", "#1f1f1f")
+      .attr("filter", "url(#drop-shadow)")
+      .on("click", (event, d) => {
+        if (simulationRef.current) {
+          simulationRef.current.force("center", null);
+        }
+        if (onNodeClick) onNodeClick(d);
+      })
+      .on("mouseover", function (event, d) {
+        const currentRadius = parseFloat(d3.select(this).attr("r"));
+        d3.select(this)
+          .transition()
+          .attr("r", currentRadius * 1.1);
+      })
+      .on("mouseout", function (event, d) {
+        d3.select(this)
+          .transition()
+          .attr("r", d.radius || 14);
+      })
       .call(
-        d3.drag<SVGCircleElement, NodeDatum>()
+        d3.drag<SVGCircleElement, GraphNode>()
           .on("start", (event, d) => {
-            if (!event.active) simulation.alphaTarget(0.3).restart()
-            d.fx = d.x
-            d.fy = d.y
+            if (simulationRef.current) {
+              simulationRef.current.force("center", null);
+              if (!event.active) simulationRef.current.alphaTarget(0.3).restart();
+            }
+            d.fx = d.x;
+            d.fy = d.y;
           })
           .on("drag", (event, d) => {
-            d.fx = event.x
-            d.fy = event.y
+            d.fx = event.x;
+            d.fy = event.y;
           })
           .on("end", (event, d) => {
-            if (!event.active) simulation.alphaTarget(0)
-            d.fx = null
-            d.fy = null
+            if (simulationRef.current) {
+              if (!event.active) simulationRef.current.alphaTarget(0);
+            }
+            d.fx = null;
+            d.fy = null;
           })
-      )
+      );
 
-    const label = svg
-      .append("g")
-      .selectAll("text")
-      .data(data.nodes)
+    const labelSelection = container.selectAll<SVGTextElement, GraphNode>("text")
+      .data(nodes)
       .enter()
       .append("text")
       .text(d => d.id)
-      .attr("font-size", 12)
+      .attr("fill", "#ffffff")
+      .attr("font-size", "12px")
+      .attr("font-family", "sans-serif")
       .attr("text-anchor", "middle")
-      .attr("dy", "-1.2em")
+      .attr("dy", "0.35em");
 
     simulation.on("tick", () => {
-      link
-        .attr("x1", d => (d.source as NodeDatum).x ?? 0)
-        .attr("y1", d => (d.source as NodeDatum).y ?? 0)
-        .attr("x2", d => (d.target as NodeDatum).x ?? 0)
-        .attr("y2", d => (d.target as NodeDatum).y ?? 0)
+      linkSelection
+        .attr("x1", d =>
+          typeof d.source !== "string" ? d.source.x ?? 0 : 0
+        )
+        .attr("y1", d =>
+          typeof d.source !== "string" ? d.source.y ?? 0 : 0
+        )
+        .attr("x2", d =>
+          typeof d.target !== "string" ? d.target.x ?? 0 : 0
+        )
+        .attr("y2", d =>
+          typeof d.target !== "string" ? d.target.y ?? 0 : 0
+        );
 
-      node
-        .attr("cx", d => d.x ?? 0)
-        .attr("cy", d => d.y ?? 0)
+      nodeSelection
+        .attr("cx", d => d.x || 0)
+        .attr("cy", d => d.y || 0);
 
-      label
-        .attr("x", d => d.x ?? 0)
-        .attr("y", d => d.y ?? 0)
-    })
-  }, [])
+      labelSelection
+        .attr("x", d => d.x || 0)
+        .attr("y", d => d.y || 0);
+    });
+
+    const zoomBehavior = d3.zoom<SVGSVGElement, unknown>()
+      .scaleExtent([0.3, 5])
+      .on("zoom", (event) => {
+        container.attr("transform", event.transform);
+      });
+    svg.call(zoomBehavior);
+
+    return () => {
+      simulation.stop();
+    };
+  }, [graphData, onNodeClick]);
 
   return (
-    <svg
+    <Box
+      component="svg"
       ref={svgRef}
-      width={600}
-      height={400}
-      style={{ border: "1px solid #ccc" }}
+      sx={{
+        width: "100%",
+        height: "100%",
+        backgroundColor: "#343541",
+        display: "block",
+      }}
     />
-  )
+  );
 }
