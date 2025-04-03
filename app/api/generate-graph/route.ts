@@ -19,8 +19,11 @@ if (!process.env.PINECONE_ENVIRONMENT) {
   throw new Error("PINECONE_ENVIRONMENT is not defined");
 }
 
+// Trim the index name to remove any accidental whitespace.
+const rawIndexName = process.env.PINECONE_INDEX;
+const indexName = rawIndexName.trim();
+
 // Validate that the index name matches the expected pattern (lowercase letters, numbers, and hyphens).
-const indexName = process.env.PINECONE_INDEX;
 if (!/^[a-z0-9-]+$/.test(indexName)) {
   throw new Error("PINECONE_INDEX does not match the expected pattern (lowercase letters, numbers, and hyphens only)");
 }
@@ -80,6 +83,7 @@ export async function POST(request: Request) {
     const pdfBuffer = Buffer.from(pdfBase64, "base64");
     const pdfData = await pdf(pdfBuffer);
     let extractedText = pdfData.text || "";
+    // Replace non-ASCII characters (except basic whitespace) to ensure consistent text.
     extractedText = extractedText.replace(/[^\x20-\x7E\n\r\t]+/g, " ");
 
     const chunks = chunkText(extractedText, 2000);
@@ -99,6 +103,7 @@ export async function POST(request: Request) {
       await namespacedIndex.upsertRecords(batch as any);
     }
 
+    // Wait a moment for the records to be indexed.
     await new Promise((resolve) => setTimeout(resolve, 10000));
 
     const genericQuery = "Key information for building a knowledge graph";
