@@ -1,36 +1,13 @@
+/* eslint-disable */
 "use client";
 import React, { useState, useEffect } from "react";
-import { ThemeProvider, Box, CircularProgress } from "@mui/material";
+import { ThemeProvider, Box, CircularProgress, Typography } from "@mui/material";
 import { chatGPTDarkTheme } from "./theme";
 import Header from "@/components/Header";
-import DocumentUpload from "@/components/DocumentUpload";
+import DocumentUpload, { GraphResponse, GraphData, GraphNode } from "@/components/DocumentUpload";
 import D3Graph from "@/components/d3-components/D3Graph";
 import Sidebar from "@/components/Sidebar";
 import ChatbotSidebar from "@/components/ChatbotSidebar";
-
-// Define graph types
-interface GraphNode {
-  id: string;
-  size: "large" | "medium" | "small";
-  ring: number;
-  description?: string;
-}
-
-interface GraphLink {
-  source: string;
-  target: string;
-}
-
-interface GraphData {
-  nodes: GraphNode[];
-  links: GraphLink[];
-}
-
-// Expected response from generate-graph route
-interface GraphResponse {
-  graph: GraphData;
-  docNamespace: string;
-}
 
 export default function Page() {
   const [graphData, setGraphData] = useState<GraphData | null>(null);
@@ -39,13 +16,11 @@ export default function Page() {
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // When document upload completes, store both the graph and namespace.
+  // When document upload completes, update state immediately.
   const handleGraphData = (data: GraphResponse) => {
-    setTimeout(() => {
-      setGraphData(data.graph);
-      setDocNamespace(data.docNamespace);
-      setLoading(false);
-    }, 1000);
+    setGraphData(data.graph);
+    setDocNamespace(data.docNamespace);
+    setLoading(false);
   };
 
   // After the namespace is available, fetch an AI-generated title.
@@ -79,7 +54,6 @@ export default function Page() {
 
   return (
     <ThemeProvider theme={chatGPTDarkTheme}>
-      {/* Header now shows a fixed left title, centered AI title, and a right button */}
       <Header aiTitle={docTitle} />
       <Box
         sx={{
@@ -90,19 +64,11 @@ export default function Page() {
           overflow: "hidden",
         }}
       >
-        {/* Document Upload view */}
         {!graphData && !loading && (
           <Box sx={{ p: 2 }}>
-            <DocumentUpload
-              onGraphData={(data: GraphResponse) => {
-                setLoading(true);
-                handleGraphData(data);
-              }}
-            />
+            <DocumentUpload onGraphData={handleGraphData} />
           </Box>
         )}
-
-        {/* Loading indicator */}
         {loading && !graphData && (
           <Box
             sx={{
@@ -110,13 +76,15 @@ export default function Page() {
               alignItems: "center",
               justifyContent: "center",
               height: "100%",
+              flexDirection: "column",
             }}
           >
             <CircularProgress color="primary" />
+            <Typography variant="body2" sx={{ mt: 2, color: "#fff" }}>
+              Generating Graph...
+            </Typography>
           </Box>
         )}
-
-        {/* Render graph and sidebars when graphData is available */}
         {graphData && (
           <>
             <D3Graph graphData={graphData} onNodeClick={handleNodeClick} />

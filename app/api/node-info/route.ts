@@ -76,7 +76,7 @@ Return only the JSON object.
     try {
       resultJson = JSON.parse(sanitizedText);
     } catch (parseErr) {
-      console.error("Failed to parse JSON initially. Raw output:", completionText);
+      console.error("Failed to parse JSON initially. Raw output:", completionText, parseErr);
 
       try {
         const fixedText = tryFixJson(sanitizedText);
