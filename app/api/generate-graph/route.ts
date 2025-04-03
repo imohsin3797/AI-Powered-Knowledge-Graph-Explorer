@@ -88,9 +88,10 @@ export async function POST(request: Request) {
 
     const chunks = chunkText(extractedText, 2000);
     const recordIdBase = `doc-${Date.now()}`;
+    // Change property from _id to id so Pinecone sees a valid identifier.
     const records = chunks
       .map((chunk, i) => ({
-        _id: `${recordIdBase}-${i}`,
+        id: `${recordIdBase}-${i}`,
         text: chunk,
       }))
       .filter((record) => record.text && record.text.trim() !== "");
