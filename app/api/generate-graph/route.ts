@@ -86,6 +86,8 @@ export async function POST(request: Request) {
     // Replace non-ASCII characters (except basic whitespace) to ensure consistent text.
     extractedText = extractedText.replace(/[^\x20-\x7E\n\r\t]+/g, " ");
 
+    console.log(extractedText);
+
     const chunks = chunkText(extractedText, 2000);
     const recordIdBase = `doc-${Date.now()}`;
     // Change property from _id to id so Pinecone sees a valid identifier.

@@ -16,14 +16,12 @@ export default function Page() {
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // When document upload completes, update state immediately.
   const handleGraphData = (data: GraphResponse) => {
     setGraphData(data.graph);
     setDocNamespace(data.docNamespace);
     setLoading(false);
   };
 
-  // After the namespace is available, fetch an AI-generated title.
   useEffect(() => {
     if (docNamespace) {
       const fetchTitle = async () => {
