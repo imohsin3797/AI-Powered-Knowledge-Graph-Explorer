@@ -5,7 +5,6 @@ import { Button, Box, Typography } from "@mui/material";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import LoadingScreen from "./LoadingScreen";
 
-// Shared types (or import from a shared file)
 export interface GraphNode {
   id: string;
   size: "large" | "medium" | "small";
@@ -53,12 +52,10 @@ export default function DocumentUpload({ onGraphData }: DocumentUploadProps) {
     setIsLoading(true);
 
     try {
-      // STEP 0: Reading file
       setStep(0);
       setLoadingMessage("Reading file…");
       const arrayBuffer = await file.arrayBuffer();
 
-      // STEP 1: Converting to Base64
       setStep(1);
       setLoadingMessage("Converting to Base64…");
       const uint8Arr = new Uint8Array(arrayBuffer);
@@ -68,7 +65,6 @@ export default function DocumentUpload({ onGraphData }: DocumentUploadProps) {
       }
       const pdfBase64 = btoa(binaryStr);
 
-      // STEP 2: Call generate-graph API with streaming response
       const res = await fetch("/api/generate-graph", {
         method: "POST",
         headers: {
@@ -90,14 +86,12 @@ export default function DocumentUpload({ onGraphData }: DocumentUploadProps) {
         if (done) break;
         accumulatedText += decoder.decode(value, { stream: true });
         const lines = accumulatedText.split("\n");
-        // The last line might be incomplete so keep it in accumulatedText.
         accumulatedText = lines.pop() || "";
         for (const line of lines) {
           if (line.trim()) {
             try {
               const parsed = JSON.parse(line) as GraphResponse;
               if (parsed.graph && parsed.docNamespace) {
-                // Final result
                 onGraphData(parsed);
               }
             } catch (e) {
@@ -107,7 +101,6 @@ export default function DocumentUpload({ onGraphData }: DocumentUploadProps) {
         }
       }
 
-      // Process any remaining text after the stream is done.
       if (accumulatedText.trim()) {
         try {
           const parsed = JSON.parse(accumulatedText) as GraphResponse;

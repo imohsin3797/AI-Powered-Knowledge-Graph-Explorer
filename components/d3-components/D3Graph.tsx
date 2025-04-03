@@ -27,7 +27,6 @@ interface D3GraphProps {
   onNodeClick?: (node: GraphNode) => void;
 }
 
-// Base node radii by "size"
 const BASE_RADIUS = {
   large: 30,
   medium: 20,
