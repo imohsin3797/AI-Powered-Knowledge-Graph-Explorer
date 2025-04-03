@@ -76,7 +76,20 @@ export default function DocumentUpload({ onGraphData }: DocumentUploadProps) {
         body: JSON.stringify({ pdfBase64, config: {} }),
       });
 
-      const data = await res.json();
+      // Read response as text first.
+      const text = await res.text();
+      if (!text) {
+        throw new Error("Empty response from server");
+      }
+      
+      let data: GraphResponse;
+      try {
+        data = JSON.parse(text);
+      } catch (parseError) {
+        console.error("Failed to parse JSON. Response text:", text);
+        throw new Error("Failed to parse JSON from response");
+      }
+      
       if (data.graph && data.docNamespace) {
         onGraphData(data);
       } else {
