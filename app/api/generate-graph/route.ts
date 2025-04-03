@@ -127,6 +127,8 @@ Return only the JSON object.
     const completionText = completion.choices[0]?.message?.content || "";
     const sanitizedText = completionText.replace(/```json/gi, "").replace(/```/g, "");
 
+    console.log(sanitizedText);
+
     let graphJson;
     try {
       graphJson = JSON.parse(sanitizedText);

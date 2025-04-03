@@ -5,6 +5,7 @@ import { Button, Box, Typography } from "@mui/material";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import LoadingScreen from "./LoadingScreen";
 
+// Shared types (or import from a shared file)
 export interface GraphNode {
   id: string;
   size: "large" | "medium" | "small";
@@ -36,7 +37,6 @@ export default function DocumentUpload({ onGraphData }: DocumentUploadProps) {
   const [error, setError] = useState("");
 
   const [step, setStep] = useState(0);
-  const totalSteps = 4;
   const [loadingMessage, setLoadingMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -52,10 +52,12 @@ export default function DocumentUpload({ onGraphData }: DocumentUploadProps) {
     setIsLoading(true);
 
     try {
+      // STEP 0: Reading file
       setStep(0);
       setLoadingMessage("Reading file…");
       const arrayBuffer = await file.arrayBuffer();
 
+      // STEP 1: Converting to Base64
       setStep(1);
       setLoadingMessage("Converting to Base64…");
       const uint8Arr = new Uint8Array(arrayBuffer);
@@ -65,6 +67,7 @@ export default function DocumentUpload({ onGraphData }: DocumentUploadProps) {
       }
       const pdfBase64 = btoa(binaryStr);
 
+      // STEP 2: Call generate-graph API without streaming
       const res = await fetch("/api/generate-graph", {
         method: "POST",
         headers: {
@@ -73,43 +76,11 @@ export default function DocumentUpload({ onGraphData }: DocumentUploadProps) {
         body: JSON.stringify({ pdfBase64, config: {} }),
       });
 
-      if (!res.body) {
-        throw new Error("No response body");
-      }
-      
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let accumulatedText = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        accumulatedText += decoder.decode(value, { stream: true });
-        const lines = accumulatedText.split("\n");
-        accumulatedText = lines.pop() || "";
-        for (const line of lines) {
-          if (line.trim()) {
-            try {
-              const parsed = JSON.parse(line) as GraphResponse;
-              if (parsed.graph && parsed.docNamespace) {
-                onGraphData(parsed);
-              }
-            } catch (e) {
-              console.error("Error parsing progress update:", e);
-            }
-          }
-        }
-      }
-
-      if (accumulatedText.trim()) {
-        try {
-          const parsed = JSON.parse(accumulatedText) as GraphResponse;
-          if (parsed.graph && parsed.docNamespace) {
-            onGraphData(parsed);
-          }
-        } catch (e) {
-          console.error("Error parsing final chunk:", e);
-        }
+      const data = await res.json();
+      if (data.graph && data.docNamespace) {
+        onGraphData(data);
+      } else {
+        throw new Error("Invalid response from the server");
       }
     } catch (err: unknown) {
       setError((err as Error).message || "An error occurred");
