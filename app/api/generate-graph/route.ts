@@ -5,15 +5,33 @@ import { Pinecone } from "@pinecone-database/pinecone";
 import { v4 as uuidv4 } from "uuid";
 import pdf from "pdf-parse";
 
+// Ensure required environment variables are provided.
+if (!process.env.OPENAI_API_KEY) {
+  throw new Error("OPENAI_API_KEY is not defined");
+}
+if (!process.env.PINECONE_API_KEY) {
+  throw new Error("PINECONE_API_KEY is not defined");
+}
+if (!process.env.PINECONE_INDEX) {
+  throw new Error("PINECONE_INDEX is not defined");
+}
+if (!process.env.PINECONE_ENVIRONMENT) {
+  throw new Error("PINECONE_ENVIRONMENT is not defined");
+}
+
+// Validate that the index name matches the expected pattern (lowercase letters, numbers, and hyphens).
+const indexName = process.env.PINECONE_INDEX;
+if (!/^[a-z0-9-]+$/.test(indexName)) {
+  throw new Error("PINECONE_INDEX does not match the expected pattern (lowercase letters, numbers, and hyphens only)");
+}
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
 const pinecone = new Pinecone({
-  apiKey: process.env.PINECONE_API_KEY!,
+  apiKey: process.env.PINECONE_API_KEY,
 });
-
-const indexName = process.env.PINECONE_INDEX!;
 
 export async function POST(request: Request) {
   try {
@@ -95,24 +113,26 @@ export async function POST(request: Request) {
     const mainConcepts = config?.mainConcepts || 3;
     const nodeCount = config?.nodeCount || 10;
 
+    // Updated prompt instructing the model to extract actual topics and entities.
     const prompt = `
-You are an expert at extracting structured knowledge from unstructured text using semantic context.
-Based on the following document excerpts obtained via semantic search:
+You are an expert at extracting structured, factual key topics and relationships from unstructured text.
+Below are document excerpts retrieved via semantic search based on the uploaded document:
 """${dataStr}"""
+Using the context of these excerpts, identify the actual topics, entities, and details present in the document. Do not use generic placeholders like "main concepts" or "semantic search." Instead, generate nodes that reflect real topics found in the text.
 Generate a JSON object representing a knowledge graph with two keys: "nodes" and "links".
 
 Nodes:
 - Each node must include:
-  - "id": a short title or concept.
-  - "size": one of "large", "medium", or "small".
-  - "ring": an integer (0=main concept, 1=sub-concept, 2=detail).
-  - "description": a brief summary.
-- Focus on up to ${mainConcepts} main concepts as central nodes.
-- The total number of nodes should be ~${nodeCount}.
+  - "id": a concise title reflecting an actual concept or topic from the text.
+  - "size": one of "large", "medium", or "small" (with "large" for a central topic, "medium" for an important sub-topic, and "small" for a detail).
+  - "ring": an integer (0 for primary topics, 1 for secondary topics, 2 for detailed aspects).
+  - "description": a brief summary derived from the document excerpts.
+- Identify up to ${mainConcepts} primary topics as central nodes.
+- The total number of nodes should be around ${nodeCount}.
 
 Links:
-- Each link: { source: id, target: id }.
-- Ensure logical structure.
+- Each link should be an object with { source: id, target: id } representing the relationship between topics.
+- Ensure the graph reflects logical relationships derived from the content.
 
 Return only the JSON object.
     `;
@@ -126,8 +146,6 @@ Return only the JSON object.
 
     const completionText = completion.choices[0]?.message?.content || "";
     const sanitizedText = completionText.replace(/```json/gi, "").replace(/```/g, "");
-
-    console.log(sanitizedText);
 
     let graphJson;
     try {
