@@ -1,5 +1,7 @@
 # AI-Powered Graph-Based Knowledge Explorer
 
+Deployed URL (under maintenance): https://ai-powered-knowledge-graph-explorer.vercel.app/
+
 ## 🚀 Project Overview
 The AI-Powered Graph-Based Knowledge Explorer is an interactive web application that allows users to generate knowledge graphs from prompts or uploaded documents. It leverages AI and NLP to visualize concepts and their relationships dynamically.
 

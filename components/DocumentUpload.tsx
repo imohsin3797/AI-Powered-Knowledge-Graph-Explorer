@@ -68,7 +68,7 @@ export default function DocumentUpload({ onGraphData }: DocumentUploadProps) {
       const pdfBase64 = btoa(binaryStr);
 
       // STEP 2: Call generate-graph API without streaming
-      const res = await fetch("/api/generate-graph", {
+      const res = await fetch("https://ai-powered-knowledge-graph-explorer.vercel.app/api/generate-graph", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
