@@ -1,3 +1,5 @@
+'use server'
+
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { Pinecone } from "@pinecone-database/pinecone";

@@ -1,4 +1,3 @@
-/* eslint-disable */
 "use client";
 import React from "react";
 import { Box, Typography, CircularProgress } from "@mui/material";

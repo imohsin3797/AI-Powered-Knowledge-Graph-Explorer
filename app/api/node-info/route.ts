@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     if (!documentId) return NextResponse.json({ error: 'No documentId provided' }, { status: 400 });
 
     const searchResults = await namespace.searchRecords({
-      query: { inputs: { text: concept }, topK: 10, filter: { documentId: documentId } },
+      query: { inputs: { text: concept }, topK: 10, filter: { documentId: { $eq: documentId } } },
     });
 
     const summaryPrompt = `

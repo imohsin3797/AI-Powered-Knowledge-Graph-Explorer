@@ -9,11 +9,11 @@ import {
   Card,
   CardMedia,
   CardContent,
-  Button,                   // ← added
+  Button,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import ReactMarkdown from 'react-markdown';
-import StudyPath from './StudyPath';   // ← added
+import StudyPath from './StudyPath';
 
 interface NodeData {
   id: string;
@@ -47,7 +47,7 @@ export default function Sidebar({ selectedNode, onClose, documentId }: SidebarPr
   const [loading, setLoading] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(320);
   const [isResizing, setIsResizing] = useState(false);
-  const [openStudy, setOpenStudy] = useState(false);       // ← added
+  const [openStudy, setOpenStudy] = useState(false);
 
   useEffect(() => {
     if (!selectedNode) {
@@ -90,7 +90,9 @@ export default function Sidebar({ selectedNode, onClose, documentId }: SidebarPr
     [isResizing],
   );
 
-  const handleMouseUp = useCallback(() => setIsResizing(false), [isResizing]);
+  const handleMouseUp = useCallback(() => {
+    setIsResizing(false);
+  }, []);
 
   useEffect(() => {
     if (isResizing) {
@@ -140,7 +142,6 @@ export default function Sidebar({ selectedNode, onClose, documentId }: SidebarPr
                 {selectedNode.id}
               </Typography>
 
-              {/* ---- centered Study‑Path button ---- */}
               <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
                 <Button variant="outlined" onClick={() => setOpenStudy(true)}>
                   Generate Study‑Path
@@ -165,7 +166,17 @@ export default function Sidebar({ selectedNode, onClose, documentId }: SidebarPr
                         <Card key={i} sx={{ display: 'flex', mb: 1, cursor: 'pointer' }} onClick={() => window.open(v.url, '_blank')}>
                           <CardMedia component="img" sx={{ width: 100 }} image={v.thumbnail} alt={v.title} />
                           <CardContent sx={{ p: 1, overflow: 'hidden' }}>
-                            <Typography variant="body2" fontWeight="bold" sx={{ lineClamp: 2, display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden' }}>
+                            <Typography
+                              variant="body2"
+                              fontWeight="bold"
+                              sx={{
+                                lineClamp: 2,
+                                display: '-webkit-box',
+                                WebkitBoxOrient: 'vertical',
+                                WebkitLineClamp: 2,
+                                overflow: 'hidden',
+                              }}
+                            >
                               {v.title}
                             </Typography>
                           </CardContent>
@@ -183,11 +194,31 @@ export default function Sidebar({ selectedNode, onClose, documentId }: SidebarPr
                         <Card key={i} sx={{ display: 'flex', mb: 1, cursor: 'pointer' }} onClick={() => window.open(a.url, '_blank')}>
                           {a.thumbnail && <CardMedia component="img" sx={{ width: 100 }} image={a.thumbnail} alt={a.title} />}
                           <CardContent sx={{ p: 1, overflow: 'hidden' }}>
-                            <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5, lineClamp: 2, display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden' }}>
+                            <Typography
+                              variant="body2"
+                              fontWeight="bold"
+                              sx={{
+                                mb: 0.5,
+                                lineClamp: 2,
+                                display: '-webkit-box',
+                                WebkitBoxOrient: 'vertical',
+                                WebkitLineClamp: 2,
+                                overflow: 'hidden',
+                              }}
+                            >
                               {a.title}
                             </Typography>
                             {a.description && (
-                              <Typography variant="caption" sx={{ lineClamp: 3, display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3, overflow: 'hidden' }}>
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  lineClamp: 3,
+                                  display: '-webkit-box',
+                                  WebkitBoxOrient: 'vertical',
+                                  WebkitLineClamp: 3,
+                                  overflow: 'hidden',
+                                }}
+                              >
                                 {a.description}
                               </Typography>
                             )}
