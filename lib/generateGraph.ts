@@ -101,11 +101,17 @@ async function upsert(batches: ChunkBatch[], docId: UUID){
   await new Promise(r => setTimeout(r, 10_000));
 }
 
-async function search() {
+async function search(documentId: string) {
   const index: Index = pinecone.Index(INDEX_NAME);
   const namespace = index.namespace(NAMESPACE_NAME);
-  
-  return namespace.searchRecords({ query: { inputs: { text: 'Key information for building a knowledge graph' }, topK: 10 } });
+
+  return namespace.searchRecords({
+    query: {
+      inputs: { text: 'Key information for building a knowledge graph' },
+      topK: 10,
+      filter: { documentId },
+    },
+  });
 }
 
 function buildPrompt(results: unknown, cfg: GraphConfig): string {
@@ -159,7 +165,7 @@ export async function generateGraph(pdfBase64: string, cfg: GraphConfig = {}): P
   const documentId = uuidv4();
   await upsert(batches, documentId);
 
-  const searchResults = await search();
+  const searchResults = await search(documentId);
   const prompt = buildPrompt(searchResults, cfg);
   
   const graph = await runLLM(prompt);
