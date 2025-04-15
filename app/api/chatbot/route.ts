@@ -11,19 +11,21 @@ interface RequestPayload {
   documentId: UUID;
 }
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
-const pinecone = new Pinecone({ apiKey: process.env.PINECONE_API_KEY! });
+const openai: OpenAI = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+const pinecone: Pinecone = new Pinecone({ apiKey: process.env.PINECONE_API_KEY! });
 
 const INDEX_NAME = 'ai-knowledge-graph-explorer';
 const NAMESPACE_NAME = INDEX_NAME;
 
 const namespace = pinecone.Index(INDEX_NAME).namespace(NAMESPACE_NAME);
 
+type SearchResponse = Awaited<ReturnType<typeof namespace.searchRecords>>;
+
 async function parseRequest(req: Request): Promise<RequestPayload> {
-  return req.json();
+  return req.json() as Promise<RequestPayload>;
 }
 
-async function searchDocument(queryText: string, documentId: UUID) {
+async function searchDocument(queryText: string, documentId: UUID): Promise<SearchResponse> {
   return namespace.searchRecords({
     query: {
       inputs: { text: queryText },
@@ -33,7 +35,7 @@ async function searchDocument(queryText: string, documentId: UUID) {
   });
 }
 
-function buildPrompt(searchResults: unknown, question?: string): string {
+function buildPrompt(searchResults: SearchResponse, question?: string): string {
   const context = JSON.stringify(searchResults, null, 2);
 
   return question
@@ -56,18 +58,18 @@ async function runLLM(prompt: string): Promise<string> {
   return (completion.choices[0]?.message?.content ?? '').replace(/```/g, '');
 }
 
-function jsonResponse(body: unknown, status = 200) {
+function jsonResponse(body: unknown, status: number = 200): NextResponse {
   return NextResponse.json(body, { status });
 }
 
-export async function POST(req: Request) {
-  const payload = await parseRequest(req);
+export async function POST(req: Request): Promise<NextResponse> {
+  const payload: RequestPayload = await parseRequest(req);
 
-  const queryText = payload.question || 'Document summary';
-  const searchResults = await searchDocument(queryText, payload.documentId);
+  const queryText: string = payload.question || 'Document summary';
+  const searchResults: SearchResponse = await searchDocument(queryText, payload.documentId);
 
-  const prompt = buildPrompt(searchResults, payload.question);
-  const message = await runLLM(prompt);
+  const prompt: string = buildPrompt(searchResults, payload.question);
+  const message: string = await runLLM(prompt);
 
   return jsonResponse({ message });
 }

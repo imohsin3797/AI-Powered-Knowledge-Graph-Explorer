@@ -34,7 +34,12 @@ interface YouTubeApiResponse {
 
 const YT_KEY = process.env.YOUTUBE_API_KEY ?? '';
 
-export async function fetchYouTubeLinks(query: string, max = 3): Promise<VideoLink[]> {
+const toEmbed = (id: string): string => `https://www.youtube.com/embed/${id}`;
+
+export async function fetchYouTubeLinks(
+  query: string,
+  max = 3,
+): Promise<VideoLink[]> {
   if (!YT_KEY) return [];
 
   const url = new URL('https://www.googleapis.com/youtube/v3/search');
@@ -47,10 +52,11 @@ export async function fetchYouTubeLinks(query: string, max = 3): Promise<VideoLi
   try {
     const res = await fetch(url.toString());
     if (!res.ok) return [];
+
     const json = (await res.json()) as YouTubeApiResponse;
 
     return (json.items ?? []).slice(0, max).map<VideoLink>((item) => ({
-      url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
+      url: toEmbed(item.id.videoId), // ← embed URL
       title: item.snippet.title,
       thumbnail: item.snippet.thumbnails.medium.url,
     }));
@@ -71,7 +77,10 @@ interface BraveWebResponse {
 
 const BRAVE_KEY = process.env.BRAVE_API_KEY ?? '';
 
-export async function fetchWebLinks(query: string, max = 3): Promise<WebLink[]> {
+export async function fetchWebLinks(
+  query: string,
+  max = 3,
+): Promise<WebLink[]> {
   if (!BRAVE_KEY) return [];
 
   const url = new URL('https://api.search.brave.com/res/v1/web/search');
@@ -86,9 +95,7 @@ export async function fetchWebLinks(query: string, max = 3): Promise<WebLink[]> 
       },
     });
 
-    if (res.status === 429 || res.status === 402) {
-      return [];
-    }
+    if (res.status === 429 || res.status === 402) return [];
     if (!res.ok) throw new Error();
 
     const json = (await res.json()) as BraveWebResponse;
