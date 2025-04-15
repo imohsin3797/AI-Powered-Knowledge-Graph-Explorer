@@ -6,7 +6,13 @@ import { Pinecone } from '@pinecone-database/pinecone';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 const pinecone = new Pinecone({ apiKey: process.env.PINECONE_API_KEY! });
-const index = pinecone.Index(process.env.PINECONE_INDEX!);
+
+const INDEX_NAME = 'ai-knowledge-graph-explorer';
+const NAMESPACE_NAME = INDEX_NAME;
+
+const namespace = pinecone
+  .Index(INDEX_NAME)
+  .namespace(NAMESPACE_NAME);
 
 export async function POST(req: Request) {
   try {
@@ -16,9 +22,11 @@ export async function POST(req: Request) {
 
     const queryText = question || 'Document summary';
 
-    const searchResults = await index.searchRecords({
-      query: { inputs: { text: queryText }, topK: 10, filter: { documentId },}
+    const searchResults = await namespace.searchRecords({
+      query: { inputs: { text: queryText }, topK: 10, filter: { documentId: { $eq: documentId } }}
     });
+
+    console.log(searchResults);
 
     const prompt = question
       ? `You are a helpful assistant. Using the excerpts below, answer: "${question}"

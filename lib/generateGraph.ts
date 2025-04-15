@@ -76,7 +76,7 @@ function batch(chunks: ChunkBatch): ChunkBatch[] {
   return groups;
 }
 
-function toRecords(chunkBatch: ChunkBatch, docId: UUID): PineconeRecord[] {
+function batchToRecords(chunkBatch: ChunkBatch, docId: UUID): PineconeRecord[] {
   return chunkBatch
     .map(c => c.trim())
     .filter((c): c is string => c.length > 0)
@@ -94,7 +94,7 @@ async function upsert(batches: ChunkBatch[], docId: UUID){
   const ns = index.namespace(NAMESPACE_NAME);
   
   for (const batch of batches) {
-    const records = toRecords(batch, docId);
+    const records = batchToRecords(batch, docId);
     if (records.length) await ns.upsertRecords(records as unknown as IntegratedRecord<RecordMetadata>[]);
   }
   
@@ -138,7 +138,6 @@ Links:
 - Each link should be { source: id, target: id }.
 
 Return only the JSON object.`;
-
 }
 
 async function runLLM(prompt: string): Promise<KnowledgeGraph> {
