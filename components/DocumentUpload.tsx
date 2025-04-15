@@ -1,31 +1,31 @@
-/* eslint-disable */
-"use client";
-import React, { useState } from "react";
-import { Button, Box, Typography } from "@mui/material";
-import CloudUploadIcon from "@mui/icons-material/CloudUpload";
-import LoadingScreen from "./LoadingScreen";
+'use client';
 
-// Shared types (or import from a shared file)
-export interface GraphNode {
+import React, { useState } from 'react';
+import { Button, Box, Typography } from '@mui/material';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import LoadingScreen from './LoadingScreen';
+import { generateGraphAction } from '../app/actions/generateGraphAction';
+
+interface GraphNode {
   id: string;
-  size: "large" | "medium" | "small";
+  size: 'large' | 'medium' | 'small';
   ring: number;
   description?: string;
 }
 
-export interface GraphLink {
+interface GraphLink {
   source: string;
   target: string;
 }
 
-export interface GraphData {
+interface GraphData {
   nodes: GraphNode[];
   links: GraphLink[];
 }
 
-export interface GraphResponse {
+interface GraphResponse {
   graph: GraphData;
-  docNamespace: string;
+  documentId: string;
 }
 
 interface DocumentUploadProps {
@@ -34,10 +34,7 @@ interface DocumentUploadProps {
 
 export default function DocumentUpload({ onGraphData }: DocumentUploadProps) {
   const [file, setFile] = useState<File | null>(null);
-  const [error, setError] = useState("");
-
-  const [step, setStep] = useState(0);
-  const [loadingMessage, setLoadingMessage] = useState("");
+  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,75 +45,41 @@ export default function DocumentUpload({ onGraphData }: DocumentUploadProps) {
 
   const handleUpload = async () => {
     if (!file) return;
-    setError("");
     setIsLoading(true);
+    setError('');
 
     try {
-      // STEP 0: Reading file
-      setStep(0);
-      setLoadingMessage("Reading file…");
       const arrayBuffer = await file.arrayBuffer();
-
-      // STEP 1: Converting to Base64
-      setStep(1);
-      setLoadingMessage("Converting to Base64…");
       const uint8Arr = new Uint8Array(arrayBuffer);
-      let binaryStr = "";
+      let binaryStr = '';
       for (let i = 0; i < uint8Arr.length; i++) {
         binaryStr += String.fromCharCode(uint8Arr[i]);
       }
       const pdfBase64 = btoa(binaryStr);
 
-      // STEP 2: Call generate-graph API without streaming
-      const res = await fetch("https://ai-powered-knowledge-graph-explorer.vercel.app/api/generate-graph", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ pdfBase64, config: {} }),
-      });
-
-      // Read response as text first.
-      const text = await res.text();
-      if (!text) {
-        throw new Error("Empty response from server");
-      }
-      
-      let data: GraphResponse;
-      try {
-        data = JSON.parse(text);
-      } catch (parseError) {
-        console.error("Failed to parse JSON. Response text:", text);
-        throw new Error("Failed to parse JSON from response");
-      }
-      
-      if (data.graph && data.docNamespace) {
-        onGraphData(data);
+      const data = await generateGraphAction(pdfBase64);
+      if (data.graph && data.documentId) {
+        onGraphData({ graph: data.graph, documentId: data.documentId });
       } else {
-        throw new Error("Invalid response from the server");
+        throw new Error('Graph generation failed');
       }
-    } catch (err: unknown) {
-      setError((err as Error).message || "An error occurred");
+    } catch (err) {
+      setError((err as Error).message || 'An error occurred');
+    } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <Box
-      sx={{
-        p: 4,
-        borderRadius: "8px",
-        textAlign: "center",
-      }}
-    >
+    <Box sx={{ p: 4, borderRadius: '8px', textAlign: 'center' }}>
       <Typography
         variant="h4"
         sx={{
-          fontWeight: "bold",
+          fontWeight: 'bold',
           mb: 4,
-          background: "linear-gradient(45deg, silver, #ccc)",
-          WebkitBackgroundClip: "text",
-          WebkitTextFillColor: "transparent",
+          background: 'linear-gradient(45deg, silver, #ccc)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
         }}
       >
         Upload a Document to get Started
@@ -124,19 +87,18 @@ export default function DocumentUpload({ onGraphData }: DocumentUploadProps) {
 
       <Box
         sx={{
-          border: "2px dashed #555",
-          borderRadius: "8px",
+          border: '2px dashed #555',
+          borderRadius: '8px',
           p: 6,
           mb: 4,
-          position: "relative",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "#fff",
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#fff',
         }}
       >
-        <CloudUploadIcon sx={{ fontSize: 64, color: "#aaa", mb: 2 }} />
+        <CloudUploadIcon sx={{ fontSize: 64, color: '#aaa', mb: 2 }} />
         <Typography variant="h6" sx={{ mb: 1 }}>
           Drag and drop your file here or click to select
         </Typography>
@@ -149,7 +111,7 @@ export default function DocumentUpload({ onGraphData }: DocumentUploadProps) {
             type="file"
             accept=".txt,.pdf,.docx"
             onChange={handleFileChange}
-            style={{ display: "none" }}
+            style={{ display: 'none' }}
           />
         </label>
         {file && (
@@ -165,14 +127,12 @@ export default function DocumentUpload({ onGraphData }: DocumentUploadProps) {
         disabled={!file || isLoading}
         sx={{
           mb: 2,
-          backgroundColor: "#333",
-          color: "#fff",
-          "&:hover": {
-            backgroundColor: "#555",
-          },
+          backgroundColor: '#333',
+          color: '#fff',
+          '&:hover': { backgroundColor: '#555' },
         }}
       >
-        {isLoading ? "Processing..." : "Upload & Generate Graph"}
+        {isLoading ? 'Processing...' : 'Upload & Generate Graph'}
       </Button>
 
       {error && (
