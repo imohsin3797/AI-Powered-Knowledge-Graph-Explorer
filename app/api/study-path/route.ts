@@ -6,7 +6,7 @@ import { Pinecone } from '@pinecone-database/pinecone';
 import { fetchYouTubeLinks, fetchWebLinks } from '@/lib/externalSearch';
 
 const INDEX_NAME = 'ai-knowledge-graph-explorer';
-const NAMESPACE_NAME = INDEX_NAME;
+const NAMESPACE_NAME  = INDEX_NAME;
 
 const openai   = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 const pinecone = new Pinecone({ apiKey: process.env.PINECONE_API_KEY! });
@@ -14,6 +14,17 @@ const pinecone = new Pinecone({ apiKey: process.env.PINECONE_API_KEY! });
 const namespace = pinecone
   .Index(INDEX_NAME)
   .namespace(NAMESPACE_NAME);
+
+interface LearningStep {
+  title: string;
+  summary: string;
+  youtubeLinks?: unknown[];
+  webLinks?: unknown[];
+}
+
+interface PathJson {
+  steps?: LearningStep[];
+}
 
 export async function POST(req: Request) {
   try {
@@ -24,8 +35,8 @@ export async function POST(req: Request) {
     const searchResults = await namespace.searchRecords({
       query: {
         inputs: { text: concept },
-        topK: 15,
-        filter: { documentId: documentId },
+        topK : 15,
+        filter: { documentId: { $eq: documentId } },
       },
     });
 
@@ -40,19 +51,19 @@ Return ONLY JSON:
 Context:
 """${JSON.stringify(searchResults, null, 2)}"""`;
 
-    const pathCompletion = await openai.chat.completions.create({
+    const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [{ role: 'user', content: pathPrompt }],
       max_tokens: 800,
       temperature: 0.5,
     });
 
-    const raw = pathCompletion.choices[0].message?.content ?? '{}';
+    const raw       = completion.choices[0].message?.content ?? '{}';
     const jsonClean = raw.replace(/```json|```/gi, '').trim();
-    const base = JSON.parse(jsonClean);
+    const base: PathJson = JSON.parse(jsonClean);
 
-    const steps = await Promise.all(
-      (base.steps ?? []).map(async (s: any) => {
+    const steps: LearningStep[] = await Promise.all(
+      (base.steps ?? []).map(async (s: LearningStep) => {
         const [youtubeLinks, webLinks] = await Promise.all([
           fetchYouTubeLinks(`${s.title} ${concept}`, 3),
           fetchWebLinks(`${s.title} ${concept}`, 3),
