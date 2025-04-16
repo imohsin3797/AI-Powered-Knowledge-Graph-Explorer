@@ -1,8 +1,7 @@
 'use server';
 
 import OpenAI from 'openai';
-import { Index, Pinecone, type IntegratedRecord, type RecordMetadata } from '@pinecone-database/pinecone';
-import pdf from 'pdf-parse';
+import { Pinecone, type IntegratedRecord, type RecordMetadata } from '@pinecone-database/pinecone';
 import { v4 as uuidv4 } from 'uuid';
 
 type UUID = string;
@@ -46,15 +45,11 @@ const BATCH_SIZE = 20;
 const INDEX_NAME = 'ai-knowledge-graph-explorer';
 const NAMESPACE_NAME = INDEX_NAME;
 
-const openai: OpenAI = new OpenAI({ 
-    apiKey: process.env.OPENAI_API_KEY! 
-});
-
-const pinecone: Pinecone = new Pinecone({ 
-    apiKey: process.env.PINECONE_API_KEY! 
-});
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+const pinecone = new Pinecone({ apiKey: process.env.PINECONE_API_KEY! });
 
 async function extractText(pdfBase64: string): Promise<string> {
+  const { default: pdf } = await import('pdf-parse');
   const pdfBuffer = Buffer.from(pdfBase64, 'base64');
   const { text = '' } = await pdf(pdfBuffer);
   return text;
@@ -78,34 +73,23 @@ function batch(chunks: ChunkBatch): ChunkBatch[] {
 
 function batchToRecords(chunkBatch: ChunkBatch, docId: UUID): PineconeRecord[] {
   return chunkBatch
-    .map(c => c.trim())
+    .map((c) => c.trim())
     .filter((c): c is string => c.length > 0)
-    .map(
-      (text): PineconeRecord => ({
-        id: `${docId}-${uuidv4()}` as UUID,
-        text,
-        documentId: docId,
-      }),
-    );
+    .map((text): PineconeRecord => ({ id: `${docId}-${uuidv4()}` as UUID, text, documentId: docId }));
 }
 
-async function upsert(batches: ChunkBatch[], docId: UUID){
-  const index: Index = pinecone.Index(INDEX_NAME);
-  const ns = index.namespace(NAMESPACE_NAME);
-  
+async function upsert(batches: ChunkBatch[], docId: UUID) {
+  const ns = pinecone.Index(INDEX_NAME).namespace(NAMESPACE_NAME);
   for (const batch of batches) {
     const records = batchToRecords(batch, docId);
     if (records.length) await ns.upsertRecords(records as unknown as IntegratedRecord<RecordMetadata>[]);
   }
-  
-  await new Promise(r => setTimeout(r, 10_000));
+  await new Promise((r) => setTimeout(r, 10_000));
 }
 
 async function search(documentId: string) {
-  const index: Index = pinecone.Index(INDEX_NAME);
-  const namespace = index.namespace(NAMESPACE_NAME);
-
-  return namespace.searchRecords({
+  const ns = pinecone.Index(INDEX_NAME).namespace(NAMESPACE_NAME);
+  return ns.searchRecords({
     query: {
       inputs: { text: 'Key information for building a knowledge graph' },
       topK: 10,
@@ -117,25 +101,19 @@ async function search(documentId: string) {
 function buildPrompt(results: unknown, cfg: GraphConfig): string {
   const mainConcepts = cfg.mainConcepts ?? 3;
   const nodeCount = cfg.nodeCount ?? 10;
-  const payload = JSON.stringify(results, null, 2);
-  
   return `You are an expert at extracting structured, factual key topics and relationships from unstructured text.
 Below are document excerpts retrieved via semantic search based on the uploaded document:
-"""${payload}"""
+"""${JSON.stringify(results, null, 2)}"""
 Using the context of these excerpts, identify the actual topics, entities, and details present in the document. Do not use generic placeholders like "main concepts" or "semantic search." Instead, generate nodes that reflect real topics found in the text.
 Generate a JSON object representing a knowledge graph with two keys: "nodes" and "links".
 
 Nodes:
-- Each node must include:
-  - "id": a concise title reflecting an actual concept or topic from the text.
-  - "size": one of "large", "medium", or "small".
-  - "ring": 0, 1, or 2.
-  - "description": a brief summary derived from the document excerpts.
-- Identify up to ${mainConcepts} primary topics as central nodes.
-- The total number of nodes should be around ${nodeCount}.
+- Each node must include id, size, ring, description.
+- Identify up to ${mainConcepts} primary topics.
+- Total nodes ~${nodeCount}.
 
 Links:
-- Each link should be { source: id, target: id }.
+- Each link should be { source, target }.
 
 Return only the JSON object.`;
 }
@@ -147,26 +125,20 @@ async function runLLM(prompt: string): Promise<KnowledgeGraph> {
     max_tokens: 1_000,
     temperature: 0.7,
   });
-  
   const raw = completion.choices[0]?.message?.content ?? '';
-  const jsonLike = raw.replace(/```json/gi, '').replace(/```/g, '');
-  
-  return JSON.parse(jsonLike) as KnowledgeGraph;
+  return JSON.parse(raw.replace(/```json/gi, '').replace(/```/g, '')) as KnowledgeGraph;
 }
 
 export async function generateGraph(pdfBase64: string, cfg: GraphConfig = {}): Promise<GraphData> {
   const rawText = await extractText(pdfBase64);
   const cleanText = sanitize(rawText);
-
-  const chunks = chunk(cleanText);
-  const batches = batch(chunks);
-
+  const batches = batch(chunk(cleanText));
   const documentId = uuidv4();
-  await upsert(batches, documentId);
 
-  const searchResults = await search(documentId);
-  const prompt = buildPrompt(searchResults, cfg);
-  
+  await upsert(batches, documentId);
+  const results = await search(documentId);
+  const prompt = buildPrompt(results, cfg);
   const graph = await runLLM(prompt);
+
   return { graph, documentId };
 }
